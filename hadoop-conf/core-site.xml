@@ -1,0 +1,13 @@
+<configuration>
+  <property>
+    <name>fs.defaultFS</name>
+    <value>hdfs://hadoop-namenode:8020</value>
+    <description>HDFS를 기본 파일 시스템으로 사용</description>
+  </property>
+
+  <property>
+    <name>hadoop.tmp.dir</name>
+    <value>/tmp/hadoop-${user.name}</value>
+    <description>Hadoop이 작업 중 임시 파일을 저장하는 기본 디렉토리</description>
+  </property>
+</configuration>

@@ -1,0 +1,197 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+version: "2.2"
+
+# 컨테이너간 볼륨 공유를 위해 volume을 최상위에 선언
+volumes:
+  metadata_data: {}
+  middle_var: {}
+  historical_var: {}
+  broker_var: {}
+  coordinator_var: {}
+  router_var: {}
+  druid_shared: {}
+  overlord_var: {}
+  hadoop_namenode: {}
+  hadoop_datanode: {}
+
+services:
+  spring-boot:
+    build: .
+    container_name: spring-boot
+    ports:
+      - 8080:8080
+
+  hadoop-namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: hadoop-namenode
+    hostname: hadoop-namenode
+    environment:
+      - CLUSTER_NAME=test
+      - INIT_DAEMON_STEP=setup
+    volumes:
+      - hadoop_namenode:/hadoop/dfs/name
+    ports:
+      - "9870:9870" # NameNode UI
+      - "8020:8020" # NameNode 내부
+
+  hadoop-datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: hadoop-datanode
+    hostname: hadoop-datanode
+    environment:
+      - CLUSTER_NAME=test
+      - CORE_CONF_fs_defaultFS=hdfs://hadoop-namenode:8020
+      - INIT_DAEMON_STEP=bootstrap
+    volumes:
+      - hadoop_datanode:/hadoop/dfs/data
+    depends_on:
+      - hadoop-namenode
+
+  postgres:
+    container_name: postgres
+    image: postgres:latest
+    ports:
+      - "5432:5432"
+    volumes:
+      - metadata_data:/var/lib/postgresql/data
+    env_file:
+      - .env
+
+  # Need 3.5 or later for container nodes
+  zookeeper:
+    container_name: zookeeper
+    image: zookeeper:3.5.10
+    ports:
+      - "2181:2181"
+    env_file:
+      - .env
+
+  # 모두 같은 docker image를 사용, 이를 command로 컨테이너 별 서비스 역할 분리
+  coordinator:
+    image: apache/druid:32.0.0
+    container_name: coordinator
+    volumes:
+      - druid_shared:/opt/shared
+      - coordinator_var:/opt/druid/var
+      - ./hadoop-conf:/opt/hadoop/conf
+      - ./raw-data.csv:/opt/druid/raw-data.csv
+    depends_on:
+      - zookeeper
+      - postgres
+    ports:
+      - "8081:8081"
+    command:
+      - coordinator
+    env_file:
+      - .env
+
+  broker:
+    image: apache/druid:32.0.0
+    container_name: broker
+    volumes:
+      - broker_var:/opt/druid/var
+      - ./hadoop-conf:/opt/hadoop/conf
+      - ./raw-data.csv:/opt/druid/raw-data.csv
+    depends_on:
+      - zookeeper
+      - postgres
+      - coordinator
+    ports:
+      - "8082:8082"
+    command:
+      - broker
+    env_file:
+      - .env
+
+  historical:
+    image: apache/druid:32.0.0
+    container_name: historical
+    volumes:
+      - druid_shared:/opt/shared
+      - historical_var:/opt/druid/var
+      - ./hadoop-conf:/opt/hadoop/conf
+      - ./raw-data.csv:/opt/druid/raw-data.csv
+    depends_on:
+      - zookeeper
+      - postgres
+      - coordinator
+    ports:
+      - "8083:8083"
+    command:
+      - historical
+    env_file:
+      - .env
+
+  middlemanager:
+    image: apache/druid:32.0.0
+    container_name: middlemanager
+    volumes:
+      - druid_shared:/opt/shared
+      - middle_var:/opt/druid/var
+      - ./hadoop-conf:/opt/hadoop/conf
+      - ./raw-data.csv:/opt/druid/raw-data.csv
+    depends_on:
+      - zookeeper
+      - postgres
+      - coordinator
+    ports:
+      - "8091:8091"
+      - "8100-8105:8100-8105"
+    command:
+      - middleManager
+    env_file:
+      - .env
+
+  router:
+    image: apache/druid:32.0.0
+    container_name: router
+    volumes:
+      - router_var:/opt/druid/var
+      - ./hadoop-conf:/opt/hadoop/conf
+      - ./raw-data.csv:/opt/druid/raw-data.csv
+    depends_on:
+      - zookeeper
+      - postgres
+      - coordinator
+    ports:
+      - "8888:8888"
+    command:
+      - router
+    env_file:
+      - .env
+
+  overlord:
+    image: apache/druid:32.0.0
+    container_name: overlord
+    volumes:
+      - druid_shared:/opt/shared
+      - overlord_var:/opt/druid/var
+      - ./hadoop-conf:/opt/hadoop/conf
+      - ./raw-data.csv:/opt/druid/raw-data.csv
+    depends_on:
+      - zookeeper
+      - postgres
+      - coordinator
+    ports:
+      - "8090:8090"
+    command:
+      - overlord
+    env_file:
+      - .env
