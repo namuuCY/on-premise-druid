@@ -367,10 +367,22 @@ spec:
       labels:
         app: druid-broker
     spec:
+      initContainers:
+        - name: init-permissions
+          image: busybox
+          securityContext:
+            runAsUser: 0
+            privileged: true
+          command: [ "sh", "-c", "chown -R 1000:1000 /opt/druid/var" ]
+          volumeMounts:
+            - name: broker-var
+              mountPath: /opt/druid/var
       containers:
         - name: broker
           image: apache/druid:32.0.0
           args: [ "broker" ]
+          securityContext:
+            runAsUser: 1000
           ports:
             - containerPort: 8082
           livenessProbe:
@@ -441,10 +453,22 @@ spec:
       labels:
         app: druid-historical
     spec:
+      initContainers:
+        - name: init-permissions
+          image: busybox
+          securityContext:
+            runAsUser: 0
+            privileged: true
+          command: [ "sh", "-c", "chown -R 1000:1000 /opt/druid/var" ]
+          volumeMounts:
+            - name: historical-var
+              mountPath: /opt/druid/var
       containers:
         - name: historical
           image: apache/druid:32.0.0
           args: [ "historical" ]
+          securityContext:
+            runAsUser: 1000
           ports:
             - containerPort: 8083
           livenessProbe:
@@ -515,10 +539,22 @@ spec:
       labels:
         app: druid-middlemanager
     spec:
+      initContainers:
+        - name: init-permissions
+          image: busybox
+          securityContext:
+            runAsUser: 0
+            privileged: true
+          command: [ "sh", "-c", "chown -R 1000:1000 /opt/druid/var" ]
+          volumeMounts:
+            - name: middlemanager-var
+              mountPath: /opt/druid/var
       containers:
         - name: middlemanager
           image: apache/druid:32.0.0
           args: [ "middleManager" ]
+          securityContext:
+            runAsUser: 1000
           ports:
             - containerPort: 8091
             - containerPort: 8100
@@ -553,6 +589,9 @@ spec:
           envFrom:
             - configMapRef:
                 name: test-config
+          env:
+            - name: DRUID_DISCOVERY_K8S_CLUSTERIDENTIFIER
+              value: minikube
       volumes:
         - name: druid-shared
           persistentVolumeClaim:
@@ -614,10 +653,22 @@ spec:
       labels:
         app: druid-router
     spec:
+      initContainers:
+        - name: init-permissions
+          image: busybox
+          securityContext:
+            runAsUser: 0
+            privileged: true
+          command: [ "sh", "-c", "chown -R 1000:1000 /opt/druid/var" ]
+          volumeMounts:
+            - name: router-var
+              mountPath: /opt/druid/var
       containers:
         - name: router
           image: apache/druid:32.0.0
           args: [ "router" ]
+          securityContext:
+            runAsUser: 1000
           ports:
             - containerPort: 8888
           livenessProbe:
@@ -688,10 +739,22 @@ spec:
       labels:
         app: druid-overlord
     spec:
+      initContainers:
+        - name: init-permissions
+          image: busybox
+          securityContext:
+            runAsUser: 0
+            privileged: true
+          command: [ "sh", "-c", "chown -R 1000:1000 /opt/druid/var" ]
+          volumeMounts:
+            - name: overlord-var
+              mountPath: /opt/druid/var
       containers:
         - name: overlord
           image: apache/druid:32.0.0
           args: [ "overlord" ]
+          securityContext:
+            runAsUser: 1000
           ports:
             - containerPort: 8090
           livenessProbe:
