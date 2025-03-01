@@ -1,0 +1,747 @@
+# PV 생성
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: druid-shared-pv
+spec:
+  storageClassName: ""
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteMany
+  hostPath:
+    path: "/tmp/local-storage"
+  persistentVolumeReclaimPolicy: Retain
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: druid-coordinator-var-pv
+spec:
+  storageClassName: ""
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/tmp/druid-coordinator-var"
+  persistentVolumeReclaimPolicy: Retain
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: druid-broker-var-pv
+spec:
+  storageClassName: ""
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/tmp/druid-broker-var"
+  persistentVolumeReclaimPolicy: Retain
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: druid-historical-var-pv
+spec:
+  storageClassName: ""
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/tmp/druid-historical-var"
+  persistentVolumeReclaimPolicy: Retain
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: druid-middlemanager-var-pv
+spec:
+  storageClassName: ""
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/tmp/druid-middlemanager-var"
+  persistentVolumeReclaimPolicy: Retain
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: druid-router-var-pv
+spec:
+  storageClassName: ""
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/tmp/druid-router-var"
+  persistentVolumeReclaimPolicy: Retain
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: druid-overlord-var-pv
+spec:
+  storageClassName: ""
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/tmp/druid-overlord-var"
+  persistentVolumeReclaimPolicy: Retain
+---
+# PVC 생성
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: druid-shared-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: ""
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: druid-coordinator-var-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+  storageClassName: ""
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: druid-broker-var-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+  storageClassName: ""
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: druid-historical-var-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+  storageClassName: ""
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: druid-middlemanager-var-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+  storageClassName: ""
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: druid-router-var-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+  storageClassName: ""
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: druid-overlord-var-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+  storageClassName: ""
+---
+# 아래 두개는 쿠버네티스 api 를 통한 노드 디스커버리, 리더 선출을 위해 적용
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: druid-cluster
+  namespace: default
+rules:
+  - apiGroups: [ "" ]
+    resources: [ "pods", "configmaps" ]
+    verbs: [ "get", "list", "watch", "patch", "update", "create", "delete" ]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: druid-cluster
+  namespace: default
+subjects:
+  - kind: ServiceAccount
+    name: default
+    namespace: default
+roleRef:
+  kind: Role
+  name: druid-cluster
+  apiGroup: rbac.authorization.k8s.io
+---
+# spring boot deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spring-boot-rs
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: spring-boot
+      tier: app
+  template:
+    metadata:
+      labels:
+        app: spring-boot
+        tier: app
+    spec:
+      containers:
+        - name: spring-boot
+          image: docker.io/library/demo-spring-boot
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8080
+              name: spring-boot
+          livenessProbe:
+            httpGet:
+              port: 8080
+              path: /actuator/health
+            initialDelaySeconds: 60
+            timeoutSeconds: 2
+            periodSeconds: 10
+            failureThreshold: 2
+          readinessProbe:
+            httpGet:
+              port: 8080
+              path: /actuator/health
+            initialDelaySeconds: 60
+            timeoutSeconds: 2
+            periodSeconds: 10
+            failureThreshold: 2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spring-boot
+  labels:
+    app: spring-boot
+spec:
+  type: NodePort
+  ports:
+    - port: 8080
+      protocol: TCP
+      nodePort: 31000
+  selector:
+    app: spring-boot
+    tier: app
+---
+# druid - coordinator
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: druid-coordinator
+  labels:
+    app: druid-coordinator
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: druid-coordinator
+  template:
+    metadata:
+      labels:
+        app: druid-coordinator
+    spec:
+      initContainers:
+        - name: init-permissions
+          image: busybox
+          securityContext:
+            runAsUser: 0
+            privileged: true
+          command: [ "sh", "-c", "chown -R 1000:1000 /opt/druid/var" ]
+          volumeMounts:
+            - name: coordinator-var
+              mountPath: /opt/druid/var
+      containers:
+        - name: coordinator
+          image: apache/druid:32.0.0
+          args: [ "coordinator" ]
+          securityContext:
+            runAsUser: 1000
+          ports:
+            - containerPort: 8081
+          livenessProbe:
+            httpGet:
+              port: 8081
+              path: /status/health
+            initialDelaySeconds: 60
+            timeoutSeconds: 2
+            periodSeconds: 10
+            failureThreshold: 2
+          readinessProbe:
+            httpGet:
+              port: 8081
+              path: /status/health
+            initialDelaySeconds: 60
+            timeoutSeconds: 2
+            periodSeconds: 10
+            failureThreshold: 2
+          volumeMounts:
+            - name: druid-shared
+              mountPath: /opt/shared
+            - name: coordinator-var
+              mountPath: /opt/druid/var
+            - name: hdfs-config
+              mountPath: /opt/hadoop/conf
+          envFrom:
+            - configMapRef:
+                name: test-config
+      volumes:
+        - name: druid-shared
+          persistentVolumeClaim:
+            claimName: druid-shared-pvc
+        - name: coordinator-var
+          persistentVolumeClaim:
+            claimName: druid-coordinator-var-pvc
+        - name: hdfs-config
+          configMap:
+            name: hadoop-conf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: druid-coordinator
+  labels:
+    app: druid-coordinator
+spec:
+  ports:
+    - port: 8081
+      protocol: TCP
+  selector:
+    app: druid-coordinator
+    tier: app
+---
+# druid - broker
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: druid-broker
+  labels:
+    app: druid-broker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: druid-broker
+  template:
+    metadata:
+      labels:
+        app: druid-broker
+    spec:
+      containers:
+        - name: broker
+          image: apache/druid:32.0.0
+          args: [ "broker" ]
+          ports:
+            - containerPort: 8082
+          livenessProbe:
+            httpGet:
+              port: 8082
+              path: /status/health
+            initialDelaySeconds: 60
+            timeoutSeconds: 2
+            periodSeconds: 10
+            failureThreshold: 2
+          readinessProbe:
+            httpGet:
+              port: 8082
+              path: /status/health
+            initialDelaySeconds: 60
+            timeoutSeconds: 2
+            periodSeconds: 10
+            failureThreshold: 2
+          volumeMounts:
+            - name: druid-shared
+              mountPath: /opt/shared
+            - name: broker-var
+              mountPath: /opt/druid/var
+            - name: hdfs-config
+              mountPath: /opt/hadoop/druid
+          envFrom:
+            - configMapRef:
+                name: test-config
+      volumes:
+        - name: druid-shared
+          persistentVolumeClaim:
+            claimName: druid-shared-pvc
+        - name: broker-var
+          persistentVolumeClaim:
+            claimName: druid-broker-var-pvc
+        - name: hdfs-config
+          configMap:
+            name: hadoop-conf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: druid-broker
+  labels:
+    app: druid-broker
+spec:
+  ports:
+    - port: 8082
+      protocol: TCP
+  selector:
+    app: druid-broker
+    tier: app
+---
+# druid - historical
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: druid-historical
+  labels:
+    app: druid-historical
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: druid-historical
+  template:
+    metadata:
+      labels:
+        app: druid-historical
+    spec:
+      containers:
+        - name: historical
+          image: apache/druid:32.0.0
+          args: [ "historical" ]
+          ports:
+            - containerPort: 8083
+          livenessProbe:
+            httpGet:
+              port: 8083
+              path: /status/health
+            initialDelaySeconds: 60
+            timeoutSeconds: 2
+            periodSeconds: 10
+            failureThreshold: 2
+          readinessProbe:
+            httpGet:
+              port: 8083
+              path: /status/health
+            initialDelaySeconds: 60
+            timeoutSeconds: 2
+            periodSeconds: 10
+            failureThreshold: 2
+          volumeMounts:
+            - name: druid-shared
+              mountPath: /opt/shared
+            - name: historical-var
+              mountPath: /opt/druid/var
+            - name: hdfs-config
+              mountPath: /opt/hadoop/druid
+          envFrom:
+            - configMapRef:
+                name: test-config
+      volumes:
+        - name: druid-shared
+          persistentVolumeClaim:
+            claimName: druid-shared-pvc
+        - name: historical-var
+          persistentVolumeClaim:
+            claimName: druid-historical-var-pvc
+        - name: hdfs-config
+          configMap:
+            name: hadoop-conf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: druid-historical
+  labels:
+    app: druid-historical
+spec:
+  ports:
+    - port: 8083
+      protocol: TCP
+  selector:
+    app: druid-historical
+    tier: app
+---
+# druid - middlemanager
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: druid-middlemanager
+  labels:
+    app: druid-middlemanager
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: druid-middlemanager
+  template:
+    metadata:
+      labels:
+        app: druid-middlemanager
+    spec:
+      containers:
+        - name: middlemanager
+          image: apache/druid:32.0.0
+          args: [ "middleManager" ]
+          ports:
+            - containerPort: 8091
+            - containerPort: 8100
+            - containerPort: 8101
+            - containerPort: 8102
+            - containerPort: 8103
+            - containerPort: 8104
+            - containerPort: 8105
+          livenessProbe:
+            httpGet:
+              port: 8091
+              path: /status/health
+            initialDelaySeconds: 60
+            timeoutSeconds: 2
+            periodSeconds: 10
+            failureThreshold: 2
+          readinessProbe:
+            httpGet:
+              port: 8091
+              path: /status/health
+            initialDelaySeconds: 60
+            timeoutSeconds: 2
+            periodSeconds: 10
+            failureThreshold: 2
+          volumeMounts:
+            - name: druid-shared
+              mountPath: /opt/shared
+            - name: middlemanager-var
+              mountPath: /opt/druid/var
+            - name: hdfs-config
+              mountPath: /opt/hadoop/druid
+          envFrom:
+            - configMapRef:
+                name: test-config
+      volumes:
+        - name: druid-shared
+          persistentVolumeClaim:
+            claimName: druid-shared-pvc
+        - name: middlemanager-var
+          persistentVolumeClaim:
+            claimName: druid-middlemanager-var-pvc
+        - name: hdfs-config
+          configMap:
+            name: hadoop-conf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: druid-middlemanager
+  labels:
+    app: druid-middlemanager
+spec:
+  ports:
+    - name: main
+      port: 8091
+      protocol: TCP
+    - name: port-8100
+      port: 8100
+      protocol: TCP
+    - name: port-8101
+      port: 8101
+      protocol: TCP
+    - name: port-8102
+      port: 8102
+      protocol: TCP
+    - name: port-8103
+      port: 8103
+      protocol: TCP
+    - name: port-8104
+      port: 8104
+      protocol: TCP
+    - name: port-8105
+      port: 8105
+      protocol: TCP
+  selector:
+    app: druid-middlemanager
+    tier: app
+---
+# druid - router
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: druid-router
+  labels:
+    app: druid-router
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: druid-router
+  template:
+    metadata:
+      labels:
+        app: druid-router
+    spec:
+      containers:
+        - name: router
+          image: apache/druid:32.0.0
+          args: [ "router" ]
+          ports:
+            - containerPort: 8888
+          livenessProbe:
+            httpGet:
+              port: 8888
+              path: /status/health
+            initialDelaySeconds: 60
+            timeoutSeconds: 2
+            periodSeconds: 10
+            failureThreshold: 2
+          readinessProbe:
+            httpGet:
+              port: 8888
+              path: /status/health
+            initialDelaySeconds: 60
+            timeoutSeconds: 2
+            periodSeconds: 10
+            failureThreshold: 2
+          volumeMounts:
+            - name: druid-shared
+              mountPath: /opt/shared
+            - name: router-var
+              mountPath: /opt/druid/var
+            - name: hdfs-config
+              mountPath: /opt/hadoop/druid
+          envFrom:
+            - configMapRef:
+                name: test-config
+      volumes:
+        - name: druid-shared
+          persistentVolumeClaim:
+            claimName: druid-shared-pvc
+        - name: router-var
+          persistentVolumeClaim:
+            claimName: druid-router-var-pvc
+        - name: hdfs-config
+          configMap:
+            name: hadoop-conf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: druid-router
+  labels:
+    app: druid-router
+spec:
+  ports:
+    - port: 8888
+      protocol: TCP
+  selector:
+    app: druid-router
+    tier: app
+---
+# druid - overlord
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: druid-overlord
+  labels:
+    app: druid-overlord
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: druid-overlord
+  template:
+    metadata:
+      labels:
+        app: druid-overlord
+    spec:
+      containers:
+        - name: overlord
+          image: apache/druid:32.0.0
+          args: [ "overlord" ]
+          ports:
+            - containerPort: 8090
+          livenessProbe:
+            httpGet:
+              port: 8090
+              path: /status/health
+            initialDelaySeconds: 60
+            timeoutSeconds: 2
+            periodSeconds: 10
+            failureThreshold: 2
+          readinessProbe:
+            httpGet:
+              port: 8090
+              path: /status/health
+            initialDelaySeconds: 60
+            timeoutSeconds: 2
+            periodSeconds: 10
+            failureThreshold: 2
+          volumeMounts:
+            - name: druid-shared
+              mountPath: /opt/shared
+            - name: overlord-var
+              mountPath: /opt/druid/var
+            - name: hdfs-config
+              mountPath: /opt/hadoop/druid
+          envFrom:
+            - configMapRef:
+                name: test-config
+      volumes:
+        - name: druid-shared
+          persistentVolumeClaim:
+            claimName: druid-shared-pvc
+        - name: overlord-var
+          persistentVolumeClaim:
+            claimName: druid-overlord-var-pvc
+        - name: hdfs-config
+          configMap:
+            name: hadoop-conf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: druid-overlord
+  labels:
+    app: druid-overlord
+spec:
+  ports:
+    - port: 8090
+      protocol: TCP
+  selector:
+    app: druid-overlord
+    tier: app
+---

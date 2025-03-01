@@ -1,7 +1,7 @@
 <configuration>
   <property>
     <name>fs.defaultFS</name>
-    <value>hdfs://hadoop-namenode:8020</value>
+    <value>hdfs://10.10.131.80:8020</value>
     <description>HDFS를 기본 파일 시스템으로 사용</description>
   </property>
 

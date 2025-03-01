@@ -17,3 +17,4 @@
     <description>DataNode가 실제 데이터 블록을 저장하는 경로</description>
 
   </property>
+</configuration>

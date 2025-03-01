@@ -20,23 +20,23 @@ version: "2.2"
 
 # 컨테이너간 볼륨 공유를 위해 volume을 최상위에 선언
 volumes:
-  metadata_data: {}
-  middle_var: {}
-  historical_var: {}
-  broker_var: {}
-  coordinator_var: {}
-  router_var: {}
-  druid_shared: {}
-  overlord_var: {}
-  hadoop_namenode: {}
-  hadoop_datanode: {}
+  metadata_data: { }
+  middle_var: { }
+  historical_var: { }
+  broker_var: { }
+  coordinator_var: { }
+  router_var: { }
+  druid_shared: { }
+  overlord_var: { }
+  hadoop_namenode: { }
+  hadoop_datanode: { }
 
 services:
-  spring-boot:
-    build: .
-    container_name: spring-boot
-    ports:
-      - 8080:8080
+  #  spring-boot:
+  #    build: .
+  #    container_name: spring-boot
+  #    ports:
+  #      - 8080:8080
 
   hadoop-namenode:
     image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
@@ -75,123 +75,123 @@ services:
       - .env
 
   # Need 3.5 or later for container nodes
-  zookeeper:
-    container_name: zookeeper
-    image: zookeeper:3.5.10
-    ports:
-      - "2181:2181"
-    env_file:
-      - .env
-
-  # 모두 같은 docker image를 사용, 이를 command로 컨테이너 별 서비스 역할 분리
-  coordinator:
-    image: apache/druid:32.0.0
-    container_name: coordinator
-    volumes:
-      - druid_shared:/opt/shared
-      - coordinator_var:/opt/druid/var
-      - ./hadoop-conf:/opt/hadoop/conf
-      - ./raw-data.csv:/opt/druid/raw-data.csv
-    depends_on:
-      - zookeeper
-      - postgres
-    ports:
-      - "8081:8081"
-    command:
-      - coordinator
-    env_file:
-      - .env
-
-  broker:
-    image: apache/druid:32.0.0
-    container_name: broker
-    volumes:
-      - broker_var:/opt/druid/var
-      - ./hadoop-conf:/opt/hadoop/conf
-      - ./raw-data.csv:/opt/druid/raw-data.csv
-    depends_on:
-      - zookeeper
-      - postgres
-      - coordinator
-    ports:
-      - "8082:8082"
-    command:
-      - broker
-    env_file:
-      - .env
-
-  historical:
-    image: apache/druid:32.0.0
-    container_name: historical
-    volumes:
-      - druid_shared:/opt/shared
-      - historical_var:/opt/druid/var
-      - ./hadoop-conf:/opt/hadoop/conf
-      - ./raw-data.csv:/opt/druid/raw-data.csv
-    depends_on:
-      - zookeeper
-      - postgres
-      - coordinator
-    ports:
-      - "8083:8083"
-    command:
-      - historical
-    env_file:
-      - .env
-
-  middlemanager:
-    image: apache/druid:32.0.0
-    container_name: middlemanager
-    volumes:
-      - druid_shared:/opt/shared
-      - middle_var:/opt/druid/var
-      - ./hadoop-conf:/opt/hadoop/conf
-      - ./raw-data.csv:/opt/druid/raw-data.csv
-    depends_on:
-      - zookeeper
-      - postgres
-      - coordinator
-    ports:
-      - "8091:8091"
-      - "8100-8105:8100-8105"
-    command:
-      - middleManager
-    env_file:
-      - .env
-
-  router:
-    image: apache/druid:32.0.0
-    container_name: router
-    volumes:
-      - router_var:/opt/druid/var
-      - ./hadoop-conf:/opt/hadoop/conf
-      - ./raw-data.csv:/opt/druid/raw-data.csv
-    depends_on:
-      - zookeeper
-      - postgres
-      - coordinator
-    ports:
-      - "8888:8888"
-    command:
-      - router
-    env_file:
-      - .env
-
-  overlord:
-    image: apache/druid:32.0.0
-    container_name: overlord
-    volumes:
-      - druid_shared:/opt/shared
-      - overlord_var:/opt/druid/var
-      - ./hadoop-conf:/opt/hadoop/conf
-      - ./raw-data.csv:/opt/druid/raw-data.csv
-    depends_on:
-      - zookeeper
-      - postgres
-      - coordinator
-    ports:
-      - "8090:8090"
-    command:
-      - overlord
-    env_file:
-      - .env
+#  zookeeper:
+#    container_name: zookeeper
+#    image: zookeeper:3.5.10
+#    ports:
+#      - "2181:2181"
+#    env_file:
+#      - .env
+#
+#  # 모두 같은 docker image를 사용, 이를 command로 컨테이너 별 서비스 역할 분리
+#  coordinator:
+#    image: apache/druid:32.0.0
+#    container_name: coordinator
+#    volumes:
+#      - druid_shared:/opt/shared
+#      - coordinator_var:/opt/druid/var
+#      - ./hadoop-conf:/opt/hadoop/conf
+#      - ./raw-data.csv:/opt/druid/raw-data.csv
+#    depends_on:
+#      - zookeeper
+#      - postgres
+#    ports:
+#      - "8081:8081"
+#    command:
+#      - coordinator
+#    env_file:
+#      - .env
+#
+#  broker:
+#    image: apache/druid:32.0.0
+#    container_name: broker
+#    volumes:
+#      - broker_var:/opt/druid/var
+#      - ./hadoop-conf:/opt/hadoop/conf
+#      - ./raw-data.csv:/opt/druid/raw-data.csv
+#    depends_on:
+#      - zookeeper
+#      - postgres
+#      - coordinator
+#    ports:
+#      - "8082:8082"
+#    command:
+#      - broker
+#    env_file:
+#      - .env
+#
+#  historical:
+#    image: apache/druid:32.0.0
+#    container_name: historical
+#    volumes:
+#      - druid_shared:/opt/shared
+#      - historical_var:/opt/druid/var
+#      - ./hadoop-conf:/opt/hadoop/conf
+#      - ./raw-data.csv:/opt/druid/raw-data.csv
+#    depends_on:
+#      - zookeeper
+#      - postgres
+#      - coordinator
+#    ports:
+#      - "8083:8083"
+#    command:
+#      - historical
+#    env_file:
+#      - .env
+#
+#  middlemanager:
+#    image: apache/druid:32.0.0
+#    container_name: middlemanager
+#    volumes:
+#      - druid_shared:/opt/shared
+#      - middle_var:/opt/druid/var
+#      - ./hadoop-conf:/opt/hadoop/conf
+#      - ./raw-data.csv:/opt/druid/raw-data.csv
+#    depends_on:
+#      - zookeeper
+#      - postgres
+#      - coordinator
+#    ports:
+#      - "8091:8091"
+#      - "8100-8105:8100-8105"
+#    command:
+#      - middleManager
+#    env_file:
+#      - .env
+#
+#  router:
+#    image: apache/druid:32.0.0
+#    container_name: router
+#    volumes:
+#      - router_var:/opt/druid/var
+#      - ./hadoop-conf:/opt/hadoop/conf
+#      - ./raw-data.csv:/opt/druid/raw-data.csv
+#    depends_on:
+#      - zookeeper
+#      - postgres
+#      - coordinator
+#    ports:
+#      - "8888:8888"
+#    command:
+#      - router
+#    env_file:
+#      - .env
+#
+#  overlord:
+#    image: apache/druid:32.0.0
+#    container_name: overlord
+#    volumes:
+#      - druid_shared:/opt/shared
+#      - overlord_var:/opt/druid/var
+#      - ./hadoop-conf:/opt/hadoop/conf
+#      - ./raw-data.csv:/opt/druid/raw-data.csv
+#    depends_on:
+#      - zookeeper
+#      - postgres
+#      - coordinator
+#    ports:
+#      - "8090:8090"
+#    command:
+#      - overlord
+#    env_file:
+#      - .env
