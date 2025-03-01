@@ -1,0 +1,338 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hdfs-config
+data:
+  hdfs-site.xml: |
+    <configuration>
+      <property>
+        <name>dfs.nameservices</name>
+        <value>mycluster</value>
+      </property>
+      <property>
+        <name>dfs.ha.namenodes.mycluster</name>
+        <value>nn1,nn2</value>
+      </property>
+      <property>
+        <name>dfs.namenode.rpc-address.mycluster.nn1</name>
+        <value>namenode-0.namenode:8020</value>
+      </property>
+      <property>
+        <name>dfs.namenode.rpc-address.mycluster.nn2</name>
+        <value>namenode-1.namenode:8020
+        </value>
+      </property>
+      <property>
+        <name>dfs.client.failover.proxy.provider.mycluster</name>
+        <value>org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider</value>
+      </property>
+      <property>
+        <name>dfs.journalnode.edits.dir</name>
+        <value>/hadoop/dfs/journal</value>
+      </property>
+      <property>
+        <name>dfs.namenode.edits.dir</name>
+        <value>
+          qjournal://journalnode-0.journalnode,journalnode-1.journalnode,journalnode-2.journalnode/mycluster</value>
+      </property>
+      <property>
+        <name>dfs.replication</name>
+        <value>2</value>
+      </property>
+      <property>
+        <name>dfs.namenode.name.dir</name>
+        <value>/hadoop/dfs/name</value>
+      </property>
+      <property>
+        <name>dfs.datanode.data.dir
+        </name>
+        <value>/hadoop/dfs/data</value>
+      </property>
+    </configuration>
+  core-site.xml: |
+    <configuration>
+      <property>
+        <name>fs.defaultFS</name>
+        <value>hdfs://mycluster</value>
+      </property>
+      <property>
+        <name>hadoop.tmp.dir</name>
+        <value>/hadoop/tmp</value>
+      </property>
+    </configuration>
+---
+########################################
+# Optional: PV 예시 (동적 프로비저닝을 사용하지 않을 경우 hostPath 기반 PV 생성)
+########################################
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-namenode
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /mnt/data/namenode
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-journalnode
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /mnt/data/journalnode
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-datanode
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /mnt/data/datanode
+---
+########################################
+# 1. Zookeeper (3 replicas)
+########################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper
+  labels:
+    app: zookeeper
+spec:
+  ports:
+    - port: 2181
+      name: client
+  clusterIP: None
+  selector:
+    app: zookeeper
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zookeeper
+spec:
+  serviceName: "zookeeper"
+  replicas: 3
+  selector:
+    matchLabels:
+      app: zookeeper
+  template:
+    metadata:
+      labels:
+        app: zookeeper
+    spec:
+      containers:
+        - name: zookeeper
+          image: zookeeper:3.5.10
+          ports:
+            - containerPort: 2181
+          env:
+            # Pod 이름을 이용해 고유 ID 부여 (실제 설정에 맞게 수정)
+            - name: ZOO_MY_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          # persistence 필요시 volumeMounts 및 volumeClaimTemplates 추가 가능
+---
+########################################
+# 2. NameNode + ZKFC (2 replicas) - 외부 노출, 환경 변수, PV/PVC 적용
+########################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: namenode
+  labels:
+    app: namenode
+spec:
+  type: NodePort
+  ports:
+    - port: 8020
+      targetPort: 8020
+      nodePort: 32010
+      name: rpc
+    - port: 50070
+      targetPort: 50070
+      nodePort: 32070
+      name: ui
+  selector:
+    app: namenode
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: namenode
+spec:
+  serviceName: "namenode"
+  replicas: 2
+  selector:
+    matchLabels:
+      app: namenode
+  template:
+    metadata:
+      labels:
+        app: namenode
+    spec:
+      containers:
+        - name: namenode
+          image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+          ports:
+            - containerPort: 8020
+            - containerPort: 50070
+          env:
+            - name: ZOOKEEPER_QUORUM
+              value: "zookeeper-0.zookeeper,zookeeper-1.zookeeper,zookeeper-2.zookeeper"
+            - name: HDFS_SITE_XML
+              valueFrom:
+                configMapKeyRef:
+                  name: hdfs-config
+                  key: hdfs-site.xml
+            - name: CORE_SITE_XML
+              valueFrom:
+                configMapKeyRef:
+                  name: hdfs-config
+                  key: core-site.xml
+          volumeMounts:
+            - name: namenode-data
+              mountPath: /hadoop/dfs/name
+  volumeClaimTemplates:
+    - metadata:
+        name: namenode-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: standard
+        resources:
+          requests:
+            storage: 2Gi
+---
+########################################
+# 3. JournalNode (3 replicas) - 환경 변수, PV/PVC 적용
+########################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: journalnode
+  labels:
+    app: journalnode
+spec:
+  ports:
+    - port: 8480
+      name: journalnode
+  clusterIP: None
+  selector:
+    app: journalnode
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: journalnode
+spec:
+  serviceName: "journalnode"
+  replicas: 3
+  selector:
+    matchLabels:
+      app: journalnode
+  template:
+    metadata:
+      labels:
+        app: journalnode
+    spec:
+      containers:
+        - name: journalnode
+          image: bde2020/hadoop-journalnode:2.0.0-hadoop3.2.1-java8
+          ports:
+            - containerPort: 8480
+          env:
+            - name: HDFS_SITE_XML
+              valueFrom:
+                configMapKeyRef:
+                  name: hdfs-config
+                  key: hdfs-site.xml
+            - name: CORE_SITE_XML
+              valueFrom:
+                configMapKeyRef:
+                  name: hdfs-config
+                  key: core-site.xml
+          volumeMounts:
+            - name: journalnode-data
+              mountPath: /hadoop/dfs/journal
+  volumeClaimTemplates:
+    - metadata:
+        name: journalnode-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: standard
+        resources:
+          requests:
+            storage: 2Gi
+---
+########################################
+# 4. DataNode (2 replicas) - 환경 변수, PV/PVC 적용
+########################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: datanode
+  labels:
+    app: datanode
+spec:
+  ports:
+    - port: 50075
+      name: datanode
+  clusterIP: None
+  selector:
+    app: datanode
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: datanode
+spec:
+  serviceName: "datanode"
+  replicas: 2
+  selector:
+    matchLabels:
+      app: datanode
+  template:
+    metadata:
+      labels:
+        app: datanode
+    spec:
+      containers:
+        - name: datanode
+          image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+          ports:
+            - containerPort: 50075
+          env:
+            - name: HDFS_SITE_XML
+              valueFrom:
+                configMapKeyRef:
+                  name: hdfs-config
+                  key: hdfs-site.xml
+            - name: CORE_SITE_XML
+              valueFrom:
+                configMapKeyRef:
+                  name: hdfs-config
+                  key: core-site.xml
+          volumeMounts:
+            - name: datanode-data
+              mountPath: /hadoop/dfs/data
+  volumeClaimTemplates:
+    - metadata:
+        name: datanode-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: standard
+        resources:
+          requests:
+            storage: 5Gi

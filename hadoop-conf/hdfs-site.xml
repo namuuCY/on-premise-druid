@@ -1,8 +1,36 @@
 <configuration>
+
+  <property>
+    <name>dfs.nameservices</name>
+    <value>mycluster</value>
+  </property>
+
   <property>
     <name>dfs.replication</name>
     <value>1</value>
-    <description>파일의 기본 복제 수</description>
+  </property>
+
+  <property>
+    <name>dfs.ha.namenodes.mycluster</name>
+    <value>namenode1,namenode2</value>
+  </property>
+
+  <property>
+    <name>dfs.namenode.http-address.mycluster.namenode1</name>
+    <value>namenode1:9870</value>
+  </property>
+  <property>
+    <name>dfs.namenode.http-address.mycluster.namenode2</name>
+    <value>namenode2:9870</value>
+  </property>
+
+  <property>
+    <name>dfs.namenode.rpc-address.mycluster.namenode1</name>
+    <value>namenode1:8020</value>
+  </property>
+  <property>
+    <name>dfs.namenode.rpc-address.mycluster.namenode2</name>
+    <value>namenode2:8020</value>
   </property>
 
   <property>
@@ -15,5 +43,25 @@
     <name>dfs.datanode.data.dir</name>
     <value>file:///hadoop/dfs/data</value>
     <description>DataNode가 실제 데이터 블록을 저장하는 경로</description>
-
   </property>
+
+  <property>
+    <name>dfs.namenode.shared.edits.dir</name>
+    <value>qjournal://journalnode1:8485;journalnode1:8485;journalnode1:8485/mycluster</value>
+  </property>
+
+  <property>
+    <name>dfs.namenode.edits.qjournals.resolution-enabled</name>
+    <value>true</value>
+  </property>
+
+  <property>
+    <name>dfs.client.failover.proxy.provider.mycluster</name>
+    <value>org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider</value>
+  </property>
+
+  <property>
+    <name>dfs.ha.automatic-failover.enabled</name>
+    <value>true</value>
+  </property>
+</configuration>

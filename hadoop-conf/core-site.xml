@@ -1,7 +1,7 @@
 <configuration>
   <property>
     <name>fs.defaultFS</name>
-    <value>hdfs://hadoop-namenode:8020</value>
+    <value>hdfs://mycluster</value>
     <description>HDFS를 기본 파일 시스템으로 사용</description>
   </property>
 
@@ -9,5 +9,10 @@
     <name>hadoop.tmp.dir</name>
     <value>/tmp/hadoop-${user.name}</value>
     <description>Hadoop이 작업 중 임시 파일을 저장하는 기본 디렉토리</description>
+  </property>
+
+  <property>
+    <name>ha.zookeeper.quorum</name>
+    <value>zookeeper1:2181,zookeeper2:2181,zookeeper3:2181</value>
   </property>
 </configuration>

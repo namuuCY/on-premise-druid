@@ -20,49 +20,224 @@ version: "2.2"
 
 # 컨테이너간 볼륨 공유를 위해 volume을 최상위에 선언
 volumes:
-  metadata_data: {}
-  middle_var: {}
-  historical_var: {}
-  broker_var: {}
-  coordinator_var: {}
-  router_var: {}
-  druid_shared: {}
-  overlord_var: {}
-  hadoop_namenode: {}
-  hadoop_datanode: {}
+  metadata_data: { }
+  middle_var: { }
+  historical_var: { }
+  broker_var: { }
+  coordinator_var: { }
+  router_var: { }
+  druid_shared: { }
+  overlord_var: { }
+  zookeeper1-data: { }
+  zookeeper2-data: { }
+  zookeeper3-data: { }
+  journalnode1-data: { }
+  journalnode2-data: { }
+  journalnode3-data: { }
+  namenode1-data:
+  namenode2-data:
+  datanode1-data:
+  datanode2-data:
+
 
 services:
   spring-boot:
     build: .
+    restart: always
     container_name: spring-boot
     ports:
       - 8080:8080
 
-  hadoop-namenode:
-    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
-    container_name: hadoop-namenode
-    hostname: hadoop-namenode
+  zookeeper1:
+    image: zookeeper:3.5.10
+    restart: always
+    container_name: zookeeper1
     environment:
-      - CLUSTER_NAME=test
-      - INIT_DAEMON_STEP=setup
-    volumes:
-      - hadoop_namenode:/hadoop/dfs/name
+      CLUSTER_NAME: mycluster
+      ALLOW_ANONYMOUS_LOGIN: yes
+      ZOO_MY_ID: 1
+      ZOO_SERVERS: server.1=zookeeper1:2888:3888;2181 server.2=zookeeper2:2888:3888;2181 server.3=zookeeper3:2888:3888;2181
     ports:
-      - "9870:9870" # NameNode UI
-      - "8020:8020" # NameNode 내부
-
-  hadoop-datanode:
-    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
-    container_name: hadoop-datanode
-    hostname: hadoop-datanode
-    environment:
-      - CLUSTER_NAME=test
-      - CORE_CONF_fs_defaultFS=hdfs://hadoop-namenode:8020
-      - INIT_DAEMON_STEP=bootstrap
+      - "2181:2181"
+    expose:
+      - "2888"
+      - "3888"
     volumes:
-      - hadoop_datanode:/hadoop/dfs/data
+      - zookeeper1-data:/druid/zookeeper
+      - ./hadoop-conf/core-site.xml:/opt/hadoop-3.2.1/etc/hadoop/core-site.xml
+      - ./hadoop-conf/hdfs-site.xml:/opt/hadoop-3.2.1/etc/hadoop/hdfs-site.xml
+
+  zookeeper2:
+    image: zookeeper:3.5.10
+    restart: always
+    container_name: zookeeper2
+    environment:
+      CLUSTER_NAME: mycluster
+      ALLOW_ANONYMOUS_LOGIN: yes
+      ZOO_MY_ID: 2
+      ZOO_SERVERS: server.1=zookeeper1:2888:3888;2181 server.2=zookeeper2:2888:3888;2181 server.3=zookeeper3:2888:3888;2181
+    ports:
+      - "2182:2181"
+    expose:
+      - "2888"
+      - "3888"
+    volumes:
+      - zookeeper2-data:/druid/zookeeper
+      - ./hadoop-conf/core-site.xml:/opt/hadoop-3.2.1/etc/hadoop/core-site.xml
+      - ./hadoop-conf/hdfs-site.xml:/opt/hadoop-3.2.1/etc/hadoop/hdfs-site.xml
+
+  zookeeper3:
+    image: zookeeper:3.5.10
+    container_name: zookeeper3
+    environment:
+      CLUSTER_NAME: mycluster
+      ALLOW_ANONYMOUS_LOGIN: yes
+      ZOO_MY_ID: 3
+      ZOO_SERVERS: server.1=zookeeper1:2888:3888;2181 server.2=zookeeper2:2888:3888;2181 server.3=zookeeper3:2888:3888;2181
+    ports:
+      - "2183:2181"
+    expose:
+      - "2888"
+      - "3888"
+    volumes:
+      - zookeeper3-data:/druid/zookeeper
+      - ./hadoop-conf/core-site.xml:/opt/hadoop-3.2.1/etc/hadoop/core-site.xml
+      - ./hadoop-conf/hdfs-site.xml:/opt/hadoop-3.2.1/etc/hadoop/hdfs-site.xml
+
+  zookeeper-navigator:
+    hostname: zookeeper-navigator
+    container_name: zookeeper-navigator
+    image: elkozmon/zoonavigator:1.1.2
+    restart: always
+    ports:
+      - 9000:9000
+    environment:
+      HTTP_PORT: 9000
+      ALLOW_ANONYMOUS_LOGIN: yes
     depends_on:
-      - hadoop-namenode
+      - zookeeper1
+      - zookeeper2
+      - zookeeper3
+
+  journalnode1:
+    image: makengi12/journalnode:1.0
+    container_name: journalnode1
+    environment:
+      - CLUSTER_NAME=mycluster
+    volumes:
+      - journalnode1-data:/hadoop/dfs/journal
+      - ./hadoop-conf/core-site.xml:/opt/hadoop-3.2.1/etc/hadoop/core-site.xml
+      - ./hadoop-conf/hdfs-site.xml:/opt/hadoop-3.2.1/etc/hadoop/hdfs-site.xml
+    expose:
+      - "8485"
+    depends_on:
+      - zookeeper1
+      - zookeeper2
+      - zookeeper3
+
+  journalnode2:
+    image: makengi12/journalnode:1.0
+    container_name: journalnode2
+    environment:
+      - CLUSTER_NAME=mycluster
+    volumes:
+      - journalnode2-data:/hadoop/dfs/journal
+      - ./hadoop-conf/core-site.xml:/opt/hadoop-3.2.1/etc/hadoop/core-site.xml
+      - ./hadoop-conf/hdfs-site.xml:/opt/hadoop-3.2.1/etc/hadoop/hdfs-site.xml
+    expose:
+      - "8485"
+    depends_on:
+      - zookeeper1
+      - zookeeper2
+      - zookeeper3
+
+  journalnode3:
+    image: makengi12/journalnode:1.0
+    container_name: journalnode3
+    environment:
+      - CLUSTER_NAME=mycluster
+    volumes:
+      - journalnode3-data:/hadoop/dfs/journal
+      - ./hadoop-conf/core-site.xml:/opt/hadoop-3.2.1/etc/hadoop/core-site.xml
+      - ./hadoop-conf/hdfs-site.xml:/opt/hadoop-3.2.1/etc/hadoop/hdfs-site.xml
+    expose:
+      - "8485"
+    depends_on:
+      - zookeeper1
+      - zookeeper2
+      - zookeeper3
+
+  namenode1:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: namenode1
+    environment:
+      - DFS_NAMENODE_SHARED_EDITS_DIR=qjournal://journalnode1:8485;journalnode2:8485;journalnode3:8485/mycluster
+      - NAMENODE_ID=namenode1
+      - CLUSTER_NAME=mycluster
+    ports:
+      - "8020:8020"
+      - "9870:9870"
+    volumes:
+      - namenode1-data:/hadoop/dfs/name
+      - ./hadoop-conf/core-site.xml:/opt/hadoop-3.2.1/etc/hadoop/core-site.xml
+      - ./hadoop-conf/hdfs-site.xml:/opt/hadoop-3.2.1/etc/hadoop/hdfs-site.xml
+    depends_on:
+      - journalnode1
+      - journalnode2
+      - journalnode3
+      - zookeeper1
+      - zookeeper2
+      - zookeeper3
+
+  namenode2:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: namenode2
+    environment:
+      - DFS_NAMENODE_SHARED_EDITS_DIR=qjournal://journalnode1:8485;journalnode2:8485;journalnode3:8485/mycluster
+      - NAMENODE_ID=namenode2
+      - CLUSTER_NAME=mycluster
+    expose:
+      - "8020"
+      - "9870"
+    volumes:
+      - namenode2-data:/hadoop/dfs/name
+      - ./hadoop-conf/core-site.xml:/opt/hadoop-3.2.1/etc/hadoop/core-site.xml
+      - ./hadoop-conf/hdfs-site.xml:/opt/hadoop-3.2.1/etc/hadoop/hdfs-site.xml
+    depends_on:
+      - journalnode1
+      - journalnode2
+      - journalnode3
+      - zookeeper1
+      - zookeeper2
+      - zookeeper3
+
+  datanode1:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: datanode1
+    environment:
+      - CLUSTER_NAME=mycluster
+      - CORE_CONF_fs_defaultFS=mycluster
+    volumes:
+      - datanode1-data:/hadoop/dfs/data
+      - ./hadoop-conf/core-site.xml:/opt/hadoop-3.2.1/etc/hadoop/core-site.xml
+      - ./hadoop-conf/hdfs-site.xml:/opt/hadoop-3.2.1/etc/hadoop/hdfs-site.xml
+    depends_on:
+      - namenode1
+      - namenode2
+
+  datanode2:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: datanode2
+    environment:
+      - CLUSTER_NAME=mycluster
+      - CORE_CONF_fs_defaultFS=mycluster
+    volumes:
+      - datanode2-data:/hadoop/dfs/data
+      - ./hadoop-conf/core-site.xml:/opt/hadoop-3.2.1/etc/hadoop/core-site.xml
+      - ./hadoop-conf/hdfs-site.xml:/opt/hadoop-3.2.1/etc/hadoop/hdfs-site.xml
+    depends_on:
+      - namenode1
+      - namenode2
 
   postgres:
     container_name: postgres
@@ -71,15 +246,6 @@ services:
       - "5432:5432"
     volumes:
       - metadata_data:/var/lib/postgresql/data
-    env_file:
-      - .env
-
-  # Need 3.5 or later for container nodes
-  zookeeper:
-    container_name: zookeeper
-    image: zookeeper:3.5.10
-    ports:
-      - "2181:2181"
     env_file:
       - .env
 
@@ -93,10 +259,28 @@ services:
       - ./hadoop-conf:/opt/hadoop/conf
       - ./raw-data.csv:/opt/druid/raw-data.csv
     depends_on:
-      - zookeeper
+      - zookeeper1
       - postgres
     ports:
       - "8081:8081"
+    command:
+      - coordinator
+    env_file:
+      - .env
+
+  coordinator2:
+    image: apache/druid:32.0.0
+    container_name: coordinator2
+    volumes:
+      - druid_shared:/opt/shared
+      - coordinator_var:/opt/druid/var
+      - ./hadoop-conf:/opt/hadoop/conf
+      - ./raw-data.csv:/opt/druid/raw-data.csv
+    depends_on:
+      - zookeeper1
+      - postgres
+    ports:
+      - "9081:8081"
     command:
       - coordinator
     env_file:
@@ -110,7 +294,7 @@ services:
       - ./hadoop-conf:/opt/hadoop/conf
       - ./raw-data.csv:/opt/druid/raw-data.csv
     depends_on:
-      - zookeeper
+      - zookeeper1
       - postgres
       - coordinator
     ports:
@@ -129,7 +313,7 @@ services:
       - ./hadoop-conf:/opt/hadoop/conf
       - ./raw-data.csv:/opt/druid/raw-data.csv
     depends_on:
-      - zookeeper
+      - zookeeper1
       - postgres
       - coordinator
     ports:
@@ -148,7 +332,7 @@ services:
       - ./hadoop-conf:/opt/hadoop/conf
       - ./raw-data.csv:/opt/druid/raw-data.csv
     depends_on:
-      - zookeeper
+      - zookeeper1
       - postgres
       - coordinator
     ports:
@@ -167,7 +351,7 @@ services:
       - ./hadoop-conf:/opt/hadoop/conf
       - ./raw-data.csv:/opt/druid/raw-data.csv
     depends_on:
-      - zookeeper
+      - zookeeper1
       - postgres
       - coordinator
     ports:
@@ -186,7 +370,7 @@ services:
       - ./hadoop-conf:/opt/hadoop/conf
       - ./raw-data.csv:/opt/druid/raw-data.csv
     depends_on:
-      - zookeeper
+      - zookeeper1
       - postgres
       - coordinator
     ports:
